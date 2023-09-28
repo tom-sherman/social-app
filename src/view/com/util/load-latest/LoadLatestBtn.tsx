@@ -1,20 +1,18 @@
 import React from 'react'
 import {StyleSheet, TouchableOpacity, View} from 'react-native'
 import Animated from 'react-native-reanimated'
-import {useSafeAreaInsets} from 'react-native-safe-area-context'
 import {FontAwesomeIcon} from '@fortawesome/react-native-fontawesome'
 import {useMediaQuery} from 'react-responsive'
 
-import {HITSLOP_20} from '#/lib/constants'
-import {useMinimalShellFabTransform} from '#/lib/hooks/useMinimalShellTransform'
-import {usePalette} from '#/lib/hooks/usePalette'
-import {useWebMediaQueries} from '#/lib/hooks/useWebMediaQueries'
-import {clamp} from '#/lib/numbers'
-import {colors} from '#/lib/styles'
-import {isNativeTablet, isWeb} from '#/platform/detection'
+import {HITSLOP_20} from 'lib/constants'
+import {usePalette} from 'lib/hooks/usePalette'
+import {useWebMediaQueries} from 'lib/hooks/useWebMediaQueries'
+import {colors} from 'lib/styles'
 import {useSession} from '#/state/session'
+import {isNativeTablet} from '#/platform/detection'
+import {useSafeAreaInsets} from 'react-native-safe-area-context'
+import {useMinimalShellFabTransform} from '#/lib/hooks/useMinimalShellTransform'
 import hairlineWidth = StyleSheet.hairlineWidth
-
 const AnimatedTouchableOpacity =
   Animated.createAnimatedComponent(TouchableOpacity)
 
@@ -42,10 +40,6 @@ export function LoadLatestBtn({
     ? isMobile || isNativeTablet
     : isTabletOrMobile
 
-  const bottomPosition = isTablet
-    ? {bottom: 50}
-    : {bottom: clamp(insets.bottom, 15, 60) + 15}
-
   return (
     <AnimatedTouchableOpacity
       style={[
@@ -57,7 +51,6 @@ export function LoadLatestBtn({
         isTablet && !isNativeTablet && styles.loadLatestInline,
         pal.borderDark,
         pal.view,
-        bottomPosition,
         showBottomBar && fabMinimalShellTransform,
       ]}
       onPress={onPress}
