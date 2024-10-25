@@ -114,11 +114,13 @@ import {Text as NewText} from '#/components/Typography'
 import {BottomSheetPortalProvider} from '../../../../modules/bottom-sheet'
 import {
   ComposerAction,
-  ComposerDraft,
   composerReducer,
   createComposerState,
   EmbedDraft,
   MAX_IMAGES,
+  PostAction,
+  PostDraft,
+  ThreadDraft,
 } from './state/composer'
 import {NO_VIDEO, NoVideoState, processVideo, VideoState} from './state/video'
 
@@ -161,11 +163,21 @@ export const ComposePost = ({
   const [publishingStage, setPublishingStage] = useState('')
   const [error, setError] = useState('')
 
-  const [draft, dispatch] = useReducer(
+  const [composerState, composerDispatch] = useReducer(
     composerReducer,
     {initImageUris, initQuoteUri: initQuote?.uri, initText, initMention},
     createComposerState,
   )
+
+  // TODO: Display drafts for other posts in the thread.
+  const draft = composerState.thread.posts[composerState.activePostIndex]
+  const dispatch = useCallback((postAction: PostAction) => {
+    composerDispatch({
+      type: 'update_post',
+      postAction,
+    })
+  }, [])
+
   const richtext = draft.richtext
   let quote: string | undefined
   if (draft.embed.quote) {
@@ -207,7 +219,7 @@ export const ComposePost = ({
         _,
       )
     },
-    [_, agent, currentDid],
+    [_, agent, currentDid, dispatch],
   )
 
   // Whenever we receive an initial video uri, we should immediately run compression if necessary
@@ -332,7 +344,7 @@ export const ComposePost = ({
       try {
         postUri = (
           await apilib.post(agent, queryClient, {
-            draft: draft,
+            thread: composerState.thread,
             replyTo: replyTo?.uri,
             onStateChange: setPublishingStage,
             langs: toPostLanguages(langPrefs.postLanguage),
@@ -408,7 +420,7 @@ export const ComposePost = ({
     [
       _,
       agent,
-      draft,
+      composerState.thread,
       extLink,
       extGif,
       images,
@@ -511,8 +523,9 @@ export const ComposePost = ({
 
           <ComposerPills
             isReply={!!replyTo}
-            draft={draft}
-            dispatch={dispatch}
+            post={draft}
+            thread={composerState.thread}
+            dispatch={composerDispatch}
             bottomBarAnimatedStyle={bottomBarAnimatedStyle}
           />
 
@@ -550,8 +563,8 @@ function ComposerPost({
   onError,
   onPublish,
 }: {
-  draft: ComposerDraft
-  dispatch: (action: ComposerAction) => void
+  draft: PostDraft
+  dispatch: (action: PostAction) => void
   textInput: React.Ref<TextInputRef>
   isReply: boolean
   canRemoveQuote: boolean
@@ -745,7 +758,7 @@ function ComposerEmbeds({
   canRemoveQuote,
 }: {
   embed: EmbedDraft
-  dispatch: (action: ComposerAction) => void
+  dispatch: (action: PostAction) => void
   clearVideo: () => void
   canRemoveQuote: boolean
 }) {
@@ -859,19 +872,21 @@ function ComposerEmbeds({
 
 function ComposerPills({
   isReply,
-  draft,
+  thread,
+  post,
   dispatch,
   bottomBarAnimatedStyle,
 }: {
   isReply: boolean
-  draft: ComposerDraft
+  thread: ThreadDraft
+  post: PostDraft
   dispatch: (action: ComposerAction) => void
   bottomBarAnimatedStyle: StyleProp<ViewStyle>
 }) {
   const t = useTheme()
-  const media = draft.embed.media
+  const media = post.embed.media
   const hasMedia = media?.type === 'images' || media?.type === 'video'
-  const hasLink = !!draft.embed.link
+  const hasLink = !!post.embed.link
   return (
     <Animated.View
       style={[a.flex_row, a.p_sm, t.atoms.bg, bottomBarAnimatedStyle]}>
@@ -882,11 +897,11 @@ function ComposerPills({
         showsHorizontalScrollIndicator={false}>
         {isReply ? null : (
           <ThreadgateBtn
-            postgate={draft.postgate}
+            postgate={thread.postgate}
             onChangePostgate={nextPostgate => {
               dispatch({type: 'update_postgate', postgate: nextPostgate})
             }}
-            threadgateAllowUISettings={draft.threadgate}
+            threadgateAllowUISettings={thread.threadgate}
             onChangeThreadgateAllowUISettings={nextThreadgate => {
               dispatch({
                 type: 'update_threadgate',
@@ -898,9 +913,15 @@ function ComposerPills({
         )}
         {hasMedia || hasLink ? (
           <LabelsBtn
-            labels={draft.labels}
+            labels={post.labels}
             onChange={nextLabels => {
-              dispatch({type: 'update_labels', labels: nextLabels})
+              dispatch({
+                type: 'update_post',
+                postAction: {
+                  type: 'update_labels',
+                  labels: nextLabels,
+                },
+              })
             }}
           />
         ) : null}
@@ -917,8 +938,8 @@ function ComposerFooter({
   onError,
   onSelectVideo,
 }: {
-  draft: ComposerDraft
-  dispatch: (action: ComposerAction) => void
+  draft: PostDraft
+  dispatch: (action: PostAction) => void
   graphemeLength: number
   onEmojiButtonPress: () => void
   onError: (error: string) => void
